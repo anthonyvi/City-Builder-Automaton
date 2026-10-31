@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>City Builder Automaton - AI & Realism</title>
+
+    <!-- PWA & Apple Touch Icon Configuration -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="City Automaton">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js for 3D graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            background-color: #090d16;
+        }
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .disaster-alert {
+            animation: pulse-red 1s infinite;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+
+    <!-- Top Navigation Bar / Real-Time Dashboard -->
+    <header class="h-16 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0 backdrop-blur-md">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-amber-500 to-orange-500 p-2 rounded-xl text-slate-950 font-black shadow-lg shadow-amber-500/20">
+                <i data-lucide="building-2" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm tracking-wide text-amber-400 flex items-center gap-2">
+                    CITY AUTOMATON <span class="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded border border-amber-500/30">AI & PRO EDITION</span>
+                </h1>
+                <p class="text-[11px] text-slate-400">SimCity 2000 Sim + The Farmer Was Replaced Code Engine</p>
+            </div>
+        </div>
+
+        <!-- City Stats Dashboard -->
+        <div class="flex items-center space-x-4 text-xs font-medium">
+            <!-- Budget -->
+            <div class="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60 shadow-inner">
+                <i data-lucide="coins" class="w-4 h-4 text-amber-400"></i>
+                <div>
+                    <div class="text-[9px] text-slate-400 uppercase font-bold">Trésorerie</div>
+                    <span id="stat-money" class="text-amber-300 font-mono text-sm font-bold">$15,000</span>
+                </div>
+            </div>
+
+            <!-- Population & Happiness -->
+            <div class="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60 shadow-inner">
+                <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
+                <div>
+                    <div class="text-[9px] text-slate-400 uppercase font-bold">Pop / Satisfaction</div>
+                    <span class="text-slate-100 font-mono text-sm font-bold"><span id="stat-pop">0</span> <span id="stat-happy" class="text-emerald-400 text-xs ml-1">(100%)</span></span>
+                </div>
+            </div>
+
+            <!-- Crime & Health Hazards -->
+            <div class="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60 shadow-inner">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-rose-400"></i>
+                <div>
+                    <div class="text-[9px] text-slate-400 uppercase font-bold">Criminalité / Smog</div>
+                    <span class="font-mono text-sm font-bold"><span id="stat-crime" class="text-rose-400">0%</span> / <span id="stat-pollution" class="text-purple-400">0%</span></span>
+                </div>
+            </div>
+
+            <!-- Electricity & Maintenance -->
+            <div class="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60 shadow-inner">
+                <i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i>
+                <div>
+                    <div class="text-[9px] text-slate-400 uppercase font-bold">Énergie</div>
+                    <span id="stat-power" class="text-yellow-300 font-mono text-sm font-bold">0 / 0 MW</span>
+                </div>
+            </div>
+
+            <!-- Demand Bars (R/C/I) -->
+            <div class="flex items-center space-x-3 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60">
+                <div class="flex items-center space-x-1" title="Demande Résidentielle">
+                    <span class="text-emerald-400 text-[10px] font-bold">R</span>
+                    <div class="w-10 bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div id="demand-r" class="bg-emerald-500 h-full w-1/2 transition-all duration-500"></div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-1" title="Demande Commerciale">
+                    <span class="text-blue-400 text-[10px] font-bold">C</span>
+                    <div class="w-10 bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div id="demand-c" class="bg-blue-500 h-full w-1/2 transition-all duration-500"></div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-1" title="Demande Industrielle">
+                    <span class="text-amber-400 text-[10px] font-bold">I</span>
+                    <div class="w-10 bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div id="demand-i" class="bg-amber-500 h-full w-1/2 transition-all duration-500"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode Selector & AI Bot Toggle -->
+        <div class="flex items-center space-x-3">
+            <!-- AI Super City Planner Bot Button -->
+            <button id="btn-toggle-ai-bot" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white flex items-center space-x-2 shadow-lg shadow-purple-500/20 transition-all border border-purple-400/30">
+                <i data-lucide="bot" class="w-4 h-4 animate-bounce"></i>
+                <span id="ai-bot-status-text">ACTIVER IA URBANISTE AUTONOME</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Split -->
+    <main class="flex-1 flex overflow-hidden relative">
+
+        <!-- 3D Viewport View -->
+        <div class="flex-1 relative bg-slate-950">
+            <div id="three-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+            <!-- Disaster Warning Banner (Dynamic) -->
+            <div id="disaster-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-rose-600/90 text-white backdrop-blur px-6 py-2 rounded-xl shadow-2xl border border-rose-400 disaster-alert flex items-center space-x-3 z-30">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                <span id="disaster-text" class="font-bold text-sm">ALERTE CATASTROPHE !</span>
+            </div>
+
+            <!-- Manual Build Overlay Toolbar -->
+            <div id="manual-toolbar" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-2 rounded-2xl flex items-center space-x-2 shadow-2xl z-20">
+                <button data-tool="road" class="tool-btn active p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-slate-600 transition">
+                    <i data-lucide="milestone" class="w-4 h-4 text-slate-300"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Route ($10)</span>
+                </button>
+                <button data-tool="residential" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="home" class="w-4 h-4 text-emerald-400"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Zone R ($50)</span>
+                </button>
+                <button data-tool="commercial" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="shopping-bag" class="w-4 h-4 text-blue-400"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Zone C ($60)</span>
+                </button>
+                <button data-tool="industrial" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="factory" class="w-4 h-4 text-amber-400"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Zone I ($80)</span>
+                </button>
+                <div class="w-px h-8 bg-slate-700/80 mx-0.5"></div>
+                <button data-tool="power" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Centrale ($200)</span>
+                </button>
+                <button data-tool="police" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="shield" class="w-4 h-4 text-indigo-400"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Police ($150)</span>
+                </button>
+                <button data-tool="hospital" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="heart-pulse" class="w-4 h-4 text-rose-400"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Hôpital ($180)</span>
+                </button>
+                <button data-tool="park" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="trees" class="w-4 h-4 text-green-400"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Parc ($30)</span>
+                </button>
+                <div class="w-px h-8 bg-slate-700/80 mx-0.5"></div>
+                <button data-tool="clear" class="tool-btn p-2 rounded-xl bg-slate-800 hover:bg-red-950/50 text-red-400 flex flex-col items-center min-w-[58px] border border-transparent transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span class="text-[9px] mt-1 font-semibold">Démolir</span>
+                </button>
+            </div>
+
+            <!-- Drone Overlay Status Box -->
+            <div class="absolute top-4 left-4 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-3 text-xs space-y-1 shadow-xl pointer-events-none z-10">
+                <div class="flex items-center space-x-2 text-amber-400 font-bold">
+                    <i data-lucide="bot" class="w-4 h-4"></i>
+                    <span>ROBOT ARCHITECTE & SIMULATEUR</span>
+                </div>
+                <div class="font-mono text-slate-300">
+                    Pos Drone: X:<span id="drone-x">0</span> Y:<span id="drone-y">0</span> | Grille: 20x20
+                </div>
+                <div class="text-[10px] text-slate-400 pt-1 border-t border-slate-800">
+                    Contrôles : Clic droit = Pivoter | Molette = Zoom
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Python IDE Window -->
+        <div id="code-ide" class="w-full md:w-[500px] lg:w-[560px] bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl relative z-20">
+            
+            <!-- Window Title Bar -->
+            <div class="bg-gradient-to-r from-amber-600 to-orange-600 px-4 py-2.5 flex items-center justify-between shadow-md shrink-0">
+                <div class="flex items-center space-x-2">
+                    <div class="flex space-x-1.5">
+                        <span class="w-3 h-3 rounded-full bg-slate-900/40"></span>
+                        <span class="w-3 h-3 rounded-full bg-slate-900/40"></span>
+                    </div>
+                    <span class="text-xs font-bold text-slate-950 font-mono tracking-wide ml-2 flex items-center gap-1.5">
+                        <i data-lucide="file-code-2" class="w-4 h-4"></i> city_automation.py
+                    </span>
+                </div>
+
+                <!-- Template Selector -->
+                <div class="flex items-center space-x-2">
+                    <select id="script-presets" class="bg-slate-950/50 text-slate-100 text-xs font-mono px-2 py-1 rounded-md border border-slate-900/40 focus:outline-none cursor-pointer">
+                        <option value="preset_ai_loop">Script: Algo Optimal RCI + Services</option>
+                        <option value="preset_grid">Script: Quadrillage Intelligent</option>
+                        <option value="preset_clear">Script: Raser la Ville</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Controls Toolbar -->
+            <div class="bg-slate-800/90 px-4 py-2 border-b border-slate-700/80 flex items-center justify-between shrink-0">
+                <div class="flex items-center space-x-2">
+                    <button id="btn-run" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold text-xs flex items-center space-x-1.5 shadow-md transition">
+                        <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+                        <span>Exécuter Script</span>
+                    </button>
+                    <button id="btn-pause" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-semibold text-xs flex items-center space-x-1.5 shadow-md transition hidden">
+                        <i data-lucide="pause" class="w-3.5 h-3.5 fill-current"></i>
+                        <span>Pause</span>
+                    </button>
+                    <button id="btn-reset" class="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg font-semibold text-xs flex items-center space-x-1.5 transition">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        <span>Reset Drone</span>
+                    </button>
+                </div>
+
+                <!-- Speed Control -->
+                <div class="flex items-center space-x-2 text-xs text-slate-400 font-mono">
+                    <span>Vitesse:</span>
+                    <input id="speed-slider" type="range" min="1" max="25" value="15" class="w-20 accent-amber-500 cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Code Editor Box -->
+            <div class="flex-1 relative flex bg-slate-950 font-mono text-xs overflow-hidden">
+                <textarea id="code-editor" class="w-full h-full p-4 bg-transparent text-slate-200 leading-relaxed font-mono resize-none focus:outline-none code-font" spellcheck="false"></textarea>
+            </div>
+
+            <!-- API Cheat Sheet Quick Reference -->
+            <div class="bg-slate-900 border-t border-slate-800 p-2.5 shrink-0">
+                <div class="text-[10px] font-bold text-amber-400 mb-1 flex items-center gap-1">
+                    <i data-lucide="terminal" class="w-3 h-3"></i> COMMANDES FARMER WAS REPLACED DISPONIBLES:
+                </div>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-mono text-slate-400">
+                    <div>• <span class="text-emerald-300">move(North|South|East|West)</span></div>
+                    <div>• <span class="text-emerald-300">build("road"|"res"|"com"|"ind"|"power"|"police"|"hospital"|"park")</span></div>
+                    <div>• <span class="text-emerald-300">get_budget()</span> / <span class="text-emerald-300">get_crime()</span></div>
+                    <div>• <span class="text-emerald-300">get_pollution()</span> / <span class="text-emerald-300">clear()</span></div>
+                </div>
+            </div>
+
+            <!-- Terminal Output Window -->
+            <div class="h-32 bg-slate-950 border-t border-slate-800 flex flex-col shrink-0">
+                <div class="bg-slate-900/90 px-3 py-1 text-[10px] font-mono font-bold text-slate-400 border-b border-slate-800 flex justify-between items-center">
+                    <span>CONSOLE SYSTÈME & ALERTES</span>
+                    <button id="btn-clear-console" class="hover:text-slate-200">effacer</button>
+                </div>
+                <div id="console-output" class="flex-1 p-3 font-mono text-[11px] text-slate-300 overflow-y-auto space-y-1">
+                    <div class="text-slate-500">// Moteur de simulation prêt. Tapez votre script ou activez l'IA Bot.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- App Engine Script -->
+    <script>
+        lucide.createIcons();
+
+        /* =========================================================================
+           1. GAME SIMULATION & CONSTANTS
+           ========================================================================= */
+        const WORLD_SIZE = 20;
+        const TILE_SIZE = 1;
+
+        const TILE_TYPES = {
+            EMPTY: 'empty',
+            ROAD: 'road',
+            RESIDENTIAL: 'residential',
+            COMMERCIAL: 'commercial',
+            INDUSTRIAL: 'industrial',
+            POWER: 'power',
+            POLICE: 'police',
+            HOSPITAL: 'hospital',
+            PARK: 'park'
+        };
+
+        const BUILDING_COSTS = {
+            [TILE_TYPES.ROAD]: 10,
+            [TILE_TYPES.RESIDENTIAL]: 50,
+            [TILE_TYPES.COMMERCIAL]: 60,
+            [TILE_TYPES.INDUSTRIAL]: 80,
+            [TILE_TYPES.POWER]: 200,
+            [TILE_TYPES.POLICE]: 150,
+            [TILE_TYPES.HOSPITAL]: 180,
+            [TILE_TYPES.PARK]: 30
+        };
+
+        // Game State Engine
+        let gameState = {
+            money: 15000,
+            population: 0,
+            happiness: 100,
+            crimeRate: 0,
+            pollutionRate: 0,
+            powerCapacity: 0,
+            powerUsed: 0,
+            demandR: 60,
+            demandC: 40,
+            demandI: 50,
+            droneX: 0,
+            droneY: 0,
+            aiBotActive: false,
+            grid: [],
+            selectedTool: 'road',
+            activeDisaster: null
+        };
+
+        // Initialize 2D Grid
+        for (let y = 0; y < WORLD_SIZE; y++) {
+            let row = [];
+            for (let x = 0; x < WORLD_SIZE; x++) {
+                row.push({
+                    x: x,
+                    y: y,
+                    type: TILE_TYPES.EMPTY,
+                    level: 1,
+                    onFire: false,
+                    mesh: null
+                });
+            }
+            gameState.grid.push(row);
+        }
+
+        /* =========================================================================
+           2. THREE.JS VISUAL ENGINE
+           ========================================================================= */
+        const container = document.getElementById('three-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x090d16);
+
+        const aspect = container.clientWidth / container.clientHeight;
+        const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+        camera.position.set(WORLD_SIZE * 1.2, WORLD_SIZE * 1.4, WORLD_SIZE * 1.6);
+        camera.lookAt(WORLD_SIZE / 2, 0, WORLD_SIZE / 2);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffaed, 0.9);
+        dirLight.position.set(20, 40, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        const d = 25;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // Ground Base Grid
+        const groundGroup = new THREE.Group();
+        scene.add(groundGroup);
+
+        for (let y = 0; y < WORLD_SIZE; y++) {
+            for (let x = 0; x < WORLD_SIZE; x++) {
+                const tileGeo = new THREE.BoxGeometry(TILE_SIZE * 0.96, 0.2, TILE_SIZE * 0.96);
+                const tileMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+                const tileMesh = new THREE.Mesh(tileGeo, tileMat);
+                tileMesh.position.set(x, -0.1, y);
+                tileMesh.receiveShadow = true;
+                tileMesh.userData = { gridX: x, gridY: y };
+                groundGroup.add(tileMesh);
+            }
+        }
+
+        // Drone Builder Mesh (Farmer Was Replaced Quadcopter)
+        const droneGroup = new THREE.Group();
+        const bodyGeo = new THREE.BoxGeometry(0.5, 0.2, 0.5);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3, metalness: 0.8 });
+        const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+        bodyMesh.castShadow = true;
+        droneGroup.add(bodyMesh);
+
+        const beamGeo = new THREE.CylinderGeometry(0.02, 0.25, 1.2, 8);
+        const beamMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 });
+        const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+        beamMesh.position.y = -0.6;
+        droneGroup.add(beamMesh);
+
+        for (let i = 0; i < 4; i++) {
+            const armGeo = new THREE.BoxGeometry(0.1, 0.05, 0.4);
+            const armMesh = new THREE.Mesh(armGeo, bodyMat);
+            armMesh.rotation.y = (Math.PI / 2) * i;
+            droneGroup.add(armMesh);
+        }
+
+        scene.add(droneGroup);
+        updateDronePositionVisual(0, 0);
+
+        function updateDronePositionVisual(x, y) {
+            droneGroup.position.set(x, 1.2, y);
+            document.getElementById('drone-x').innerText = x;
+            document.getElementById('drone-y').innerText = y;
+        }
+
+        // Raycasting for Direct Mouse Hover
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const hoverGeo = new THREE.BoxGeometry(TILE_SIZE, 0.05, TILE_SIZE);
+        const hoverMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.5 });
+        const hoverMesh = new THREE.Mesh(hoverGeo, hoverMat);
+        hoverMesh.visible = false;
+        scene.add(hoverMesh);
+
+        /* =========================================================================
+           3. BUILDINGS 3D GENERATOR FACTORY
+           ========================================================================= */
+        const meshesGrid = Array(WORLD_SIZE).fill(null).map(() => Array(WORLD_SIZE).fill(null));
+
+        function createBuildingMesh(type) {
+            const group = new THREE.Group();
+
+            if (type === TILE_TYPES.ROAD) {
+                const roadGeo = new THREE.BoxGeometry(TILE_SIZE, 0.02, TILE_SIZE);
+                const roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
+                const road = new THREE.Mesh(roadGeo, roadMat);
+                road.receiveShadow = true;
+                group.add(road);
+
+                const stripeGeo = new THREE.BoxGeometry(0.15, 0.03, 0.6);
+                const stripeMat = new THREE.MeshBasicMaterial({ color: 0xf1f5f9 });
+                const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+                group.add(stripe);
+            }
+            else if (type === TILE_TYPES.RESIDENTIAL) {
+                const height = 0.5 + Math.random() * 0.4;
+                const geo = new THREE.BoxGeometry(0.7, height, 0.7);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4 });
+                const bld = new THREE.Mesh(geo, mat);
+                bld.position.y = height / 2;
+                bld.castShadow = true;
+                group.add(bld);
+
+                const roofGeo = new THREE.ConeGeometry(0.55, 0.3, 4);
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0x047857 });
+                const roof = new THREE.Mesh(roofGeo, roofMat);
+                roof.position.y = height + 0.15;
+                roof.rotation.y = Math.PI / 4;
+                group.add(roof);
+            }
+            else if (type === TILE_TYPES.COMMERCIAL) {
+                const height = 0.8 + Math.random() * 0.5;
+                const geo = new THREE.BoxGeometry(0.75, height, 0.75);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.2, metalness: 0.5 });
+                const bld = new THREE.Mesh(geo, mat);
+                bld.position.y = height / 2;
+                bld.castShadow = true;
+                group.add(bld);
+            }
+            else if (type === TILE_TYPES.INDUSTRIAL) {
+                const height = 0.5;
+                const geo = new THREE.BoxGeometry(0.8, height, 0.8);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.7 });
+                const factory = new THREE.Mesh(geo, mat);
+                factory.position.y = height / 2;
+                factory.castShadow = true;
+                group.add(factory);
+
+                const stackGeo = new THREE.CylinderGeometry(0.1, 0.12, 0.8, 8);
+                const stackMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+                const stack = new THREE.Mesh(stackGeo, stackMat);
+                stack.position.set(0.2, 0.4, 0.2);
+                group.add(stack);
+            }
+            else if (type === TILE_TYPES.POWER) {
+                const baseGeo = new THREE.BoxGeometry(0.85, 0.4, 0.85);
+                const baseMat = new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.6 });
+                const base = new THREE.Mesh(baseGeo, baseMat);
+                base.position.y = 0.2;
+                group.add(base);
+
+                const domeGeo = new THREE.SphereGeometry(0.3, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+                const domeMat = new THREE.MeshStandardMaterial({ color: 0xca8a04 });
+                const dome = new THREE.Mesh(domeGeo, domeMat);
+                dome.position.y = 0.4;
+                group.add(dome);
+            }
+            else if (type === TILE_TYPES.POLICE) {
+                const geo = new THREE.BoxGeometry(0.8, 0.6, 0.8);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x4338ca });
+                const bld = new THREE.Mesh(geo, mat);
+                bld.position.y = 0.3;
+                group.add(bld);
+
+                // Siren Light
+                const lightGeo = new THREE.SphereGeometry(0.1);
+                const lightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+                const light = new THREE.Mesh(lightGeo, lightMat);
+                light.position.set(0, 0.7, 0);
+                group.add(light);
+            }
+            else if (type === TILE_TYPES.HOSPITAL) {
+                const geo = new THREE.BoxGeometry(0.8, 0.7, 0.8);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+                const bld = new THREE.Mesh(geo, mat);
+                bld.position.y = 0.35;
+                group.add(bld);
+
+                // Red Cross Emblem
+                const crossGeo = new THREE.BoxGeometry(0.4, 0.15, 0.1);
+                const crossMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+                const cross1 = new THREE.Mesh(crossGeo, crossMat);
+                cross1.position.set(0, 0.5, 0.41);
+                const cross2 = cross1.clone();
+                cross2.rotation.z = Math.PI / 2;
+                group.add(cross1);
+                group.add(cross2);
+            }
+            else if (type === TILE_TYPES.PARK) {
+                const parkGeo = new THREE.BoxGeometry(0.9, 0.05, 0.9);
+                const parkMat = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+                const park = new THREE.Mesh(parkGeo, parkMat);
+                group.add(park);
+
+                for (let i = 0; i < 2; i++) {
+                    const trunkGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.3);
+                    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+                    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                    trunk.position.set((i - 0.5) * 0.4, 0.15, (i - 0.5) * 0.3);
+
+                    const leavesGeo = new THREE.DodecahedronGeometry(0.2);
+                    const leavesMat = new THREE.MeshStandardMaterial({ color: 0x15803d });
+                    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+                    leaves.position.y = 0.25;
+                    trunk.add(leaves);
+                    group.add(trunk);
+                }
+            }
+
+            return group;
+        }
+
+        function updateTileMesh(x, y, type) {
+            if (meshesGrid[y][x]) {
+                scene.remove(meshesGrid[y][x]);
+                meshesGrid[y][x] = null;
+            }
+
+            if (type !== TILE_TYPES.EMPTY) {
+                const mesh = createBuildingMesh(type);
+                mesh.position.set(x, 0, y);
+                scene.add(mesh);
+                meshesGrid[y][x] = mesh;
+            }
+        }
+
+        /* =========================================================================
+           4. SIMULATION GAME LOOP & REALISTIC CHALLENGES
+           ========================================================================= */
+        setInterval(() => {
+            let resCount = 0;
+            let comCount = 0;
+            let indCount = 0;
+            let powerCount = 0;
+            let policeCount = 0;
+            let hospitalCount = 0;
+            let parkCount = 0;
+
+            for (let y = 0; y < WORLD_SIZE; y++) {
+                for (let x = 0; x < WORLD_SIZE; x++) {
+                    const tile = gameState.grid[y][x];
+                    if (tile.type === TILE_TYPES.RESIDENTIAL) resCount++;
+                    if (tile.type === TILE_TYPES.COMMERCIAL) comCount++;
+                    if (tile.type === TILE_TYPES.INDUSTRIAL) indCount++;
+                    if (tile.type === TILE_TYPES.POWER) powerCount++;
+                    if (tile.type === TILE_TYPES.POLICE) policeCount++;
+                    if (tile.type === TILE_TYPES.HOSPITAL) hospitalCount++;
+                    if (tile.type === TILE_TYPES.PARK) parkCount++;
+                }
+            }
+
+            // Power Calculations
+            gameState.powerCapacity = powerCount * 120;
+            gameState.powerUsed = (resCount * 5) + (comCount * 10) + (indCount * 18);
+            const hasPower = gameState.powerCapacity >= gameState.powerUsed || powerCount === 0;
+
+            // Stats Calculations
+            gameState.population = resCount * 30;
+
+            // Pollution Rate (Industrial - Parks)
+            gameState.pollutionRate = Math.max(0, Math.min(100, Math.floor((indCount * 4) - (parkCount * 5))));
+
+            // Crime Rate (Population density - Police protection)
+            const rawCrime = Math.floor((gameState.population / 15) - (policeCount * 25));
+            gameState.crimeRate = Math.max(0, Math.min(100, rawCrime));
+
+            // Happiness Score
+            let happy = 100;
+            if (!hasPower && gameState.powerUsed > 0) happy -= 30;
+            happy -= (gameState.crimeRate * 0.4);
+            happy -= (gameState.pollutionRate * 0.3);
+            if (hospitalCount === 0 && gameState.population > 200) happy -= 15;
+            gameState.happiness = Math.max(10, Math.min(100, Math.floor(happy)));
+
+            // Taxes & Maintenance Costs
+            const taxIncome = (resCount * 15) + (comCount * 30) + (indCount * 45);
+            const maintenanceCost = (policeCount * 40) + (hospitalCount * 50) + (powerCount * 60) + (parkCount * 10);
+            gameState.money += (taxIncome - maintenanceCost);
+
+            // Demand Updates
+            gameState.demandR = Math.min(100, Math.max(0, 80 - (resCount * 4) + (indCount * 3)));
+            gameState.demandC = Math.min(100, Math.max(0, (resCount * 3) - (comCount * 5)));
+            gameState.demandI = Math.min(100, Math.max(0, (resCount * 4) - (indCount * 4)));
+
+            // Disasters Random Event Trigger
+            triggerRandomDisasters();
+
+            // UI Refresh
+            document.getElementById('stat-money').innerText = `$${gameState.money.toLocaleString()}`;
+            document.getElementById('stat-pop').innerText = gameState.population.toLocaleString();
+            document.getElementById('stat-happy').innerText = `(${gameState.happiness}%)`;
+            document.getElementById('stat-crime').innerText = `${gameState.crimeRate}%`;
+            document.getElementById('stat-pollution').innerText = `${gameState.pollutionRate}%`;
+            document.getElementById('stat-power').innerText = `${gameState.powerUsed} / ${gameState.powerCapacity} MW`;
+
+            document.getElementById('demand-r').style.width = `${gameState.demandR}%`;
+            document.getElementById('demand-c').style.width = `${gameState.demandC}%`;
+            document.getElementById('demand-i').style.width = `${gameState.demandI}%`;
+
+        }, 1500);
+
+        function triggerRandomDisasters() {
+            if (gameState.activeDisaster) return;
+            
+            const rand = Math.random();
+            const banner = document.getElementById('disaster-banner');
+            const disasterText = document.getElementById('disaster-text');
+
+            if (rand < 0.03 && gameState.population > 100) { // Heatwave / Fire
+                gameState.activeDisaster = "INCENDIE URBAIN";
+                disasterText.innerText = "🔥 ALERTE : Vague de chaleur ! Risque d'incendie !";
+                banner.classList.remove('hidden');
+                logConsole("🔥 INCENDIE : Des bâtiments risquent de brûler !", true);
+                
+                setTimeout(() => {
+                    banner.classList.add('hidden');
+                    gameState.activeDisaster = null;
+                }, 6000);
+            }
+            else if (rand > 0.97 && gameState.crimeRate > 40) { // Emeute
+                gameState.activeDisaster = "ÉMEUTES DE LA FAIM";
+                disasterText.innerText = "🚨 ALERTE : Émeutes dues au fort taux de criminalité !";
+                banner.classList.remove('hidden');
+                logConsole("🚨 ÉMEUTE : Construisez plus de commissariats !", true);
+
+                setTimeout(() => {
+                    banner.classList.add('hidden');
+                    gameState.activeDisaster = null;
+                }, 6000);
+            }
+        }
+
+        /* =========================================================================
+           5. AI BOT CITY PLANNER (Optimal Algorithm)
+           ========================================================================= */
+        let aiBotInterval = null;
+
+        function toggleAIBot() {
+            gameState.aiBotActive = !gameState.aiBotActive;
+            const btnText = document.getElementById('ai-bot-status-text');
+            const btn = document.getElementById('btn-toggle-ai-bot');
+
+            if (gameState.aiBotActive) {
+                btnText.innerText = "DÉSACTIVER IA URBANISTE";
+                btn.classList.replace('from-indigo-600', 'from-emerald-600');
+                btn.classList.replace('to-purple-600', 'to-teal-600');
+                logConsole("🤖 IA URBANISTE ACTIVÉE : Construction automatique optimale démarrée.");
+                startAIBotEngine();
+            } else {
+                btnText.innerText = "ACTIVER IA URBANISTE AUTONOME";
+                btn.classList.replace('from-emerald-600', 'from-indigo-600');
+                btn.classList.replace('to-teal-600', 'to-purple-600');
+                logConsole("🤖 IA URBANISTE DÉSACTIVÉE.");
+                clearInterval(aiBotInterval);
+            }
+        }
+
+        document.getElementById('btn-toggle-ai-bot').addEventListener('click', toggleAIBot);
+
+        function startAIBotEngine() {
+            aiBotInterval = setInterval(() => {
+                if (!gameState.aiBotActive) return;
+
+                let powerCount = 0, policeCount = 0, hospitalCount = 0, resCount = 0, indCount = 0;
+
+                for (let y = 0; y < WORLD_SIZE; y++) {
+                    for (let x = 0; x < WORLD_SIZE; x++) {
+                        const t = gameState.grid[y][x].type;
+                        if (t === TILE_TYPES.POWER) powerCount++;
+                        if (t === TILE_TYPES.POLICE) policeCount++;
+                        if (t === TILE_TYPES.HOSPITAL) hospitalCount++;
+                        if (t === TILE_TYPES.RESIDENTIAL) resCount++;
+                        if (t === TILE_TYPES.INDUSTRIAL) indCount++;
+                    }
+                }
+
+                // AI Decision Matrix
+                let targetType = TILE_TYPES.ROAD;
+
+                if (powerCount === 0 || (gameState.powerUsed >= gameState.powerCapacity - 20)) {
+                    targetType = TILE_TYPES.POWER;
+                } else if (policeCount === 0 && gameState.population > 150) {
+                    targetType = TILE_TYPES.POLICE;
+                } else if (hospitalCount === 0 && gameState.population > 250) {
+                    targetType = TILE_TYPES.HOSPITAL;
+                } else if (gameState.demandR > gameState.demandC && gameState.demandR > gameState.demandI) {
+                    targetType = TILE_TYPES.RESIDENTIAL;
+                } else if (gameState.demandC > gameState.demandI) {
+                    targetType = TILE_TYPES.COMMERCIAL;
+                } else {
+                    targetType = TILE_TYPES.INDUSTRIAL;
+                }
+
+                // Scan grid for optimal next placement
+                for (let y = 0; y < WORLD_SIZE; y++) {
+                    for (let x = 0; x < WORLD_SIZE; x++) {
+                        if (gameState.grid[y][x].type === TILE_TYPES.EMPTY) {
+                            
+                            // Road grid algorithm (every 4 tiles)
+                            if (x % 4 === 0 || y % 4 === 0) {
+                                targetType = TILE_TYPES.ROAD;
+                            }
+
+                            const cost = BUILDING_COSTS[targetType] || 10;
+                            if (gameState.money >= cost) {
+                                gameState.money -= cost;
+                                gameState.grid[y][x].type = targetType;
+                                updateTileMesh(x, y, targetType);
+
+                                gameState.droneX = x;
+                                gameState.droneY = y;
+                                updateDronePositionVisual(x, y);
+
+                                logConsole(`🤖 AI Bot a construit (${targetType}) en X:${x}, Y:${y}`);
+                                return; // Build 1 tile per cycle
+                            }
+                        }
+                    }
+                }
+            }, 300);
+        }
+
+        /* =========================================================================
+           6. PYTHON-LIKE CODE INTERPRETER ENGINE (The Farmer Was Replaced Scripting)
+           ========================================================================= */
+        let isCodeRunning = false;
+        let isCodePaused = false;
+        let executionDelay = 80;
+
+        const consoleOutput = document.getElementById('console-output');
+
+        function logConsole(msg, isError = false) {
+            const el = document.createElement('div');
+            el.className = isError ? 'text-rose-400 font-bold' : 'text-slate-300';
+            el.innerText = `> ${msg}`;
+            consoleOutput.appendChild(el);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        document.getElementById('btn-clear-console').addEventListener('click', () => {
+            consoleOutput.innerHTML = '';
+        });
+
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            executionDelay = Math.max(10, 250 - (val * 9));
+        });
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function apiMove(dir) {
+            if (!isCodeRunning) return;
+            while (isCodePaused) await sleep(100);
+
+            let nx = gameState.droneX;
+            let ny = gameState.droneY;
+
+            dir = String(dir).toLowerCase();
+            if (dir === 'north' || dir === 'n') ny = Math.max(0, ny - 1);
+            else if (dir === 'south' || dir === 's') ny = Math.min(WORLD_SIZE - 1, ny + 1);
+            else if (dir === 'east' || dir === 'e') nx = Math.min(WORLD_SIZE - 1, nx + 1);
+            else if (dir === 'west' || dir === 'w') nx = Math.max(0, nx - 1);
+
+            gameState.droneX = nx;
+            gameState.droneY = ny;
+            updateDronePositionVisual(nx, ny);
+            await sleep(executionDelay);
+        }
+
+        async function apiBuild(type) {
+            if (!isCodeRunning) return;
+            while (isCodePaused) await sleep(100);
+
+            const x = gameState.droneX;
+            const y = gameState.droneY;
+
+            let buildType = TILE_TYPES.ROAD;
+            type = String(type).toLowerCase();
+
+            if (type.includes('res')) buildType = TILE_TYPES.RESIDENTIAL;
+            else if (type.includes('com')) buildType = TILE_TYPES.COMMERCIAL;
+            else if (type.includes('ind')) buildType = TILE_TYPES.INDUSTRIAL;
+            else if (type.includes('pow')) buildType = TILE_TYPES.POWER;
+            else if (type.includes('pol')) buildType = TILE_TYPES.POLICE;
+            else if (type.includes('hosp')) buildType = TILE_TYPES.HOSPITAL;
+            else if (type.includes('park')) buildType = TILE_TYPES.PARK;
+            else if (type.includes('road')) buildType = TILE_TYPES.ROAD;
+
+            const cost = BUILDING_COSTS[buildType] || 10;
+            if (gameState.money >= cost) {
+                gameState.money -= cost;
+                gameState.grid[y][x].type = buildType;
+                updateTileMesh(x, y, buildType);
+                logConsole(`Construit (${buildType}) en X:${x}, Y:${y} [-${cost}$]`);
+            } else {
+                logConsole(`Fonds insuffisants pour ${buildType}!`, true);
+            }
+            await sleep(executionDelay);
+        }
+
+        async function apiClear() {
+            if (!isCodeRunning) return;
+            const x = gameState.droneX;
+            const y = gameState.droneY;
+            gameState.grid[y][x].type = TILE_TYPES.EMPTY;
+            updateTileMesh(x, y, TILE_TYPES.EMPTY);
+            logConsole(`Démoli en X:${x}, Y:${y}`);
+            await sleep(executionDelay);
+        }
+
+        function apiGetBudget() { return gameState.money; }
+        function apiGetCrime() { return gameState.crimeRate; }
+        function apiGetPollution() { return gameState.pollutionRate; }
+
+        async function runUserCode(codeText) {
+            isCodeRunning = true;
+            isCodePaused = false;
+            document.getElementById('btn-run').classList.add('hidden');
+            document.getElementById('btn-pause').classList.remove('hidden');
+
+            logConsole("Exécution du script Python...");
+
+            try {
+                let jsCode = codeText
+                    .replace(/#.*/g, '')
+                    .replace(/while\s+True:/g, 'while (isCodeRunning) {')
+                    .replace(/for\s+(\w+)\s+in\s+range\(([^)]+)\):/g, 'for (let $1 = 0; $1 < $2; $1++) {')
+                    .replace(/if\s+(.+):/g, 'if ($1) {')
+                    .replace(/elif\s+(.+):/g, '} else if ($1) {')
+                    .replace(/else:/g, '} else {')
+                    .replace(/move\(([^)]+)\)/g, 'await move($1)')
+                    .replace(/build\(([^)]+)\)/g, 'await build($1)')
+                    .replace(/clear\(\)/g, 'await clear()')
+                    .replace(/print\(([^)]+)\)/g, 'logConsole($1)');
+
+                const asyncFn = new Function(
+                    'move', 'build', 'clear', 'get_budget', 'get_crime', 'get_pollution',
+                    'logConsole', 'isCodeRunning', 'North', 'South', 'East', 'West',
+                    `return (async () => {
+                        try {
+                            ${jsCode}
+                        } catch(err) {
+                            logConsole(err.message, true);
+                        }
+                    })();`
+                );
+
+                await asyncFn(
+                    apiMove, apiBuild, apiClear, apiGetBudget, apiGetCrime, apiGetPollution,
+                    logConsole, isCodeRunning, 'North', 'South', 'East', 'West'
+                );
+
+                logConsole("Script terminé.");
+            } catch (err) {
+                logConsole("Erreur: " + err.message, true);
+            } finally {
+                isCodeRunning = false;
+                isCodePaused = false;
+                document.getElementById('btn-run').classList.remove('hidden');
+                document.getElementById('btn-pause').classList.add('hidden');
+            }
+        }
+
+        /* =========================================================================
+           7. CODE PRESETS & INTERACTION CONTROLS
+           ========================================================================= */
+        const PRESETS = {
+            preset_ai_loop:
+`# SCRIPT D'URBANISME OPTIMAL RCI & SERVICES
+size = 20
+
+# 1. Poser la centrale d'énergie
+build("power")
+move(East)
+build("police")
+move(East)
+build("hospital")
+
+# 2. Quadrillage de routes et habitations
+move(South)
+for y in range(4):
+    for x in range(size):
+        if x % 3 == 0:
+            build("road")
+        elif (x + y) % 2 == 0:
+            build("residential")
+        else:
+            build("commercial")
+        move(East)
+    move(South)
+    for i in range(size):
+        move(West)`,
+
+            preset_grid:
+`# QUADRILLAGE DE BASE DE LA VILLE
+size = 20
+
+for y in range(size):
+    for x in range(size):
+        if x % 4 == 0 or y % 4 == 0:
+            build("road")
+        else:
+            build("residential")
+        move(East)
+    move(South)
+    for i in range(size):
+        move(West)`,
+
+            preset_clear:
+`# DEMOLITION COMPLETE
+size = 20
+for y in range(size):
+    for x in range(size):
+        clear()
+        move(East)
+    move(South)
+    for i in range(size):
+        move(West)`
+        };
+
+        const codeEditor = document.getElementById('code-editor');
+        codeEditor.value = PRESETS.preset_ai_loop;
+
+        document.getElementById('script-presets').addEventListener('change', (e) => {
+            if (PRESETS[e.target.value]) {
+                codeEditor.value = PRESETS[e.target.value];
+            }
+        });
+
+        document.getElementById('btn-run').addEventListener('click', () => {
+            if (!isCodeRunning) runUserCode(codeEditor.value);
+        });
+
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            isCodePaused = !isCodePaused;
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            isCodeRunning = false;
+            gameState.droneX = 0;
+            gameState.droneY = 0;
+            updateDronePositionVisual(0, 0);
+        });
+
+        // Tool Selection
+        const toolButtons = document.querySelectorAll('.tool-btn');
+        toolButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                toolButtons.forEach(b => b.classList.remove('border-slate-600', 'bg-slate-700'));
+                btn.classList.add('border-slate-600', 'bg-slate-700');
+                gameState.selectedTool = btn.dataset.tool;
+            });
+        });
+
+        // Manual Raycasting & Building
+        const threeContainer = document.getElementById('three-container');
+
+        threeContainer.addEventListener('mousemove', (e) => {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(groundGroup.children);
+
+            if (intersects.length > 0) {
+                const { gridX, gridY } = intersects[0].object.userData;
+                hoverMesh.position.set(gridX, 0.05, gridY);
+                hoverMesh.visible = true;
+            } else {
+                hoverMesh.visible = false;
+            }
+        });
+
+        threeContainer.addEventListener('click', (e) => {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(groundGroup.children);
+
+            if (intersects.length > 0) {
+                const { gridX, gridY } = intersects[0].object.userData;
+                
+                if (gameState.selectedTool === 'clear') {
+                    gameState.grid[gridY][gridX].type = TILE_TYPES.EMPTY;
+                    updateTileMesh(gridX, gridY, TILE_TYPES.EMPTY);
+                } else {
+                    const toolType = gameState.selectedTool;
+                    const cost = BUILDING_COSTS[toolType] || 10;
+                    if (gameState.money >= cost) {
+                        gameState.money -= cost;
+                        gameState.grid[gridY][gridX].type = toolType;
+                        updateTileMesh(gridX, gridY, toolType);
+                    }
+                }
+            }
+        });
+
+        // Camera Drag Rotation & Zoom
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        threeContainer.addEventListener('mousedown', (e) => {
+            if (e.button === 2) isDragging = true;
+        });
+
+        threeContainer.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaMove = {
+                    x: e.clientX - previousMousePosition.x,
+                    y: e.clientY - previousMousePosition.y
+                };
+
+                const radius = camera.position.distanceTo(new THREE.Vector3(WORLD_SIZE/2, 0, WORLD_SIZE/2));
+                let theta = Math.atan2(camera.position.x - WORLD_SIZE/2, camera.position.z - WORLD_SIZE/2);
+                
+                theta -= deltaMove.x * 0.008;
+                camera.position.x = WORLD_SIZE/2 + radius * Math.sin(theta);
+                camera.position.z = WORLD_SIZE/2 + radius * Math.cos(theta);
+                camera.lookAt(WORLD_SIZE/2, 0, WORLD_SIZE/2);
+            }
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        window.addEventListener('mouseup', () => isDragging = false);
+        threeContainer.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        threeContainer.addEventListener('wheel', (e) => {
+            camera.fov += e.deltaY * 0.05;
+            camera.fov = Math.max(20, Math.min(75, camera.fov));
+            camera.updateProjectionMatrix();
+        });
+
+        window.addEventListener('resize', () => {
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        });
+
+        /* =========================================================================
+           8. ANIMATION LOOP
+           ========================================================================= */
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (droneGroup) {
+                droneGroup.position.y = 1.2 + Math.sin(Date.now() * 0.005) * 0.1;
+                droneGroup.children.slice(2).forEach(rotor => {
+                    rotor.rotation.y += 0.3;
+                });
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => animate();
+
+    </script>
+</body>
+</html>
